@@ -1,0 +1,2335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no, email=no, address=no">
+  <meta name="theme-color" content="#fff5f8">
+  <title>ovo 记账</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- QRCode.js (手机与电脑多端互联同步) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brandPink: {
+              50: '#fff5f8', 100: '#ffe4ed', 200: '#ffccd9', 300: '#ffa6bc',
+              400: '#ff7096', 500: '#f43f72', 600: '#e11d59',
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', '"PingFang SC"', '"Hiragino Sans GB"', '"Microsoft YaHei"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* ================================================================
+       等比自适应内核：以 390px 设计稿为基准，根字号随视口宽度等比缩放
+       —— 所有尺寸用 rem（1rem = 16px@390），整屏铺满且比例恒定。
+       —— iPhone 开启「桌面版网站」时视口会变成 980px，
+          根字号随之放大 2.5 倍，浏览器再缩回屏幕宽度，视觉比例完全一致。
+       ================================================================ */
+    :root {
+      --st: env(safe-area-inset-top, 0px);
+      --sb: env(safe-area-inset-bottom, 0px);
+      --sl: env(safe-area-inset-left, 0px);
+      --sr: env(safe-area-inset-right, 0px);
+      --nav-h: 3.625rem;   /* 58px */
+      --pad: 1rem;         /* 16px */
+      --radius: 1.625rem;  /* 26px */
+      --brand: #f43f72;
+      --kb: 0px;
+    }
+
+    html {
+      font-size: max(13.5px, min(4.1026vw, 44px)); /* 390px 视口 = 16px */
+      height: 100%;
+      overflow-x: hidden;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+      background: #fff5f8;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      overscroll-behavior: none;
+      background: #fff5f8;
+      color: #1f2937;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-font-smoothing: antialiased;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    input, textarea { -webkit-user-select: text; user-select: text; }
+    button { font-family: inherit; touch-action: manipulation; }
+
+    /* Tailwind 里由 JS 动态写入的小字号，同样改为等比 */
+    body .text-\[10px\] { font-size: .6875rem; line-height: 1.35; }
+    body .text-\[11px\] { font-size: .75rem; line-height: 1.35; }
+    body .text-xs { font-size: .78125rem; line-height: 1.45; }
+
+    /* ---------- 外壳：100% 铺满，无任何留白 ---------- */
+    #appShell {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      background: #fff5f8;
+    }
+
+    /* ---------- 顶部状态栏 ---------- */
+    .app-header {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .5rem;
+      padding: calc(var(--st) + .625rem) calc(var(--pad) + var(--sr)) .625rem calc(var(--pad) + var(--sl));
+      background: linear-gradient(180deg, #ffecf2 0%, #fff5f8 100%);
+      position: relative;
+      z-index: 5;
+    }
+    .header-left { display: flex; align-items: center; gap: .625rem; min-width: 0; }
+    .avatar-wrap { position: relative; flex: 0 0 auto; line-height: 0; }
+    #topAvatarContainer { width: 2.5rem; height: 2.5rem; }
+    .sync-dot {
+      position: absolute; right: -.125rem; bottom: -.125rem;
+      width: .6875rem; height: .6875rem; border-radius: 999px;
+      background: #34d399; border: 2px solid #fff;
+    }
+    .id-wrap { min-width: 0; }
+    .id-line { display: flex; align-items: center; gap: .3125rem; }
+    .id-line h1 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 900;
+      letter-spacing: -.2px;
+      color: #1f2937;
+      max-width: 34vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .id-line svg { color: #ff7096; opacity: .8; }
+    .id-sub {
+      margin: .1875rem 0 0;
+      font-size: .6875rem;
+      line-height: 1.2;
+      color: #9ca3af;
+      font-weight: 500;
+      display: flex; align-items: center; gap: .1875rem;
+      white-space: nowrap;
+    }
+    .date-pill {
+      flex: 0 0 auto;
+      padding: .3125rem .6875rem;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid #ffe4ed;
+      box-shadow: 0 .125rem .5rem rgba(255, 182, 193, .28);
+      font-size: .75rem;
+      font-weight: 700;
+      color: #4b5563;
+      white-space: nowrap;
+    }
+
+    /* ---------- 主滚动区 ---------- */
+    #appMain {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      padding: .125rem calc(var(--pad) + var(--sr)) calc(var(--nav-h) + var(--sb) + 3.25rem) calc(var(--pad) + var(--sl));
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    #appMain::-webkit-scrollbar { display: none; }
+
+    .view-section > * + * { margin-top: .75rem; }
+
+    /* ---------- 卡片 ---------- */
+    .card {
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 1rem;
+      border: 1px solid #fff0f4;
+      box-shadow: 0 .5rem 1.5rem -.875rem rgba(244, 63, 114, .35);
+    }
+    .card-title {
+      margin: 0 0 .75rem;
+      font-size: .8125rem;
+      font-weight: 900;
+      color: #1f2937;
+      display: flex; align-items: center; gap: .375rem;
+    }
+
+    /* ---------- 四宫格数据 ---------- */
+    .stats-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+    .stat-card {
+      border-radius: 1rem;
+      padding: .625rem .5rem;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center;
+      min-width: 0;
+    }
+    .stat-ico { font-size: 1.125rem; line-height: 1.1; }
+    .stat-label { font-size: .71875rem; font-weight: 700; color: #6b7280; margin-top: .125rem; }
+    .stat-value {
+      margin-top: .125rem;
+      font-size: 1.125rem;
+      line-height: 1.25;
+      font-weight: 900;
+      letter-spacing: -.02em;
+      color: #1f2937;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stat-value.is-income { color: #059669; }
+    .stat-value.is-debt { color: #b45309; }
+
+    /* ---------- 日历 ---------- */
+    .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .625rem; padding: 0 .125rem; }
+    .cal-head h2 { margin: 0; font-size: .875rem; font-weight: 900; color: #1f2937; letter-spacing: -.2px; }
+    .cal-nav {
+      width: 1.875rem; height: 1.875rem; border-radius: 999px;
+      display: flex; align-items: center; justify-content: center;
+      background: #fff0f5; color: #f43f72;
+      transition: transform .12s ease, background .18s ease;
+    }
+    .cal-nav:active { transform: scale(.9); background: #ffe4ed; }
+    .cal-week {
+      display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+      text-align: center; font-size: .6875rem; font-weight: 700; color: #9ca3af;
+      margin-bottom: .375rem;
+    }
+    #calendarGrid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: .125rem 0;
+      text-align: center;
+      font-size: .78125rem;
+      font-weight: 600;
+      color: #374151;
+    }
+    #calendarGrid > * {
+      width: 100%;
+      max-width: 2.375rem;
+      height: auto;
+      aspect-ratio: 1 / 1;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      font-size: .78125rem;
+      position: relative;
+    }
+    #calendarGrid button:active { background: #fff0f5; }
+
+    /* ---------- 当日明细 ---------- */
+    .detail-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-bottom: .625rem; margin-bottom: .625rem;
+      border-bottom: 1px solid #fff0f4;
+      gap: .5rem;
+    }
+    .detail-title-wrap { display: flex; align-items: center; gap: .375rem; min-width: 0; }
+    .detail-title { font-size: .78125rem; font-weight: 900; color: #1f2937; white-space: nowrap; }
+    .badge {
+      flex: 0 0 auto;
+      font-size: .6875rem; font-weight: 700;
+      padding: .125rem .5rem; border-radius: 999px;
+      background: #fff0f5; color: #f43f72;
+    }
+    .link-btn {
+      flex: 0 0 auto;
+      font-size: .75rem; font-weight: 800; color: #f43f72;
+      padding: .375rem .25rem;
+      touch-action: manipulation;
+    }
+    .link-btn:active { opacity: .6; }
+    #selectedRecordsList { display: flex; flex-direction: column; gap: .5rem; max-height: none; overflow: visible; }
+
+    /* ---------- 记账页 ---------- */
+    .voice-block { display: flex; flex-direction: column; align-items: center; padding: .375rem 0 .125rem; }
+    .voice-ripple-wrap { position: relative; width: 4.75rem; height: 4.75rem; }
+    .voice-btn {
+      width: 4.75rem; height: 4.75rem; border-radius: 999px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      background: linear-gradient(140deg, #ff88a8 0%, #ff5b86 55%, #f43f72 100%);
+      box-shadow: 0 .625rem 1.5rem -.5rem rgba(244, 63, 114, .65);
+      transition: transform .12s ease;
+    }
+    .voice-btn:active { transform: scale(.94); }
+    .voice-ripple {
+      position: absolute; inset: 0; border-radius: 999px;
+      border: 3px solid #ff7096; pointer-events: none;
+      animation: ripple 1.2s ease-out infinite;
+    }
+    @keyframes ripple {
+      0% { transform: scale(1); opacity: .8; }
+      100% { transform: scale(1.45); opacity: 0; }
+    }
+    .voice-hint { margin-top: .625rem; font-size: .75rem; font-weight: 600; color: #9ca3af; }
+
+    .type-switch { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-bottom: .875rem; }
+    #typeExpBtn, #typeIncBtn {
+      min-height: 2.75rem;
+      border-radius: .875rem;
+      font-size: .8125rem;
+      font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      gap: .3125rem;
+      border-style: solid;
+      border-width: 1px;
+      transition: all .18s ease;
+    }
+
+    .field-label { font-size: .75rem; font-weight: 700; color: #9ca3af; margin-bottom: .375rem; display: block; }
+    .form-stack { display: flex; flex-direction: column; gap: .75rem; }
+    .cat-block { margin-bottom: .875rem; }
+    .cat-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
+    .cat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
+
+    #recAmount, #recRemark, #recDate, #modalInputField {
+      width: 100%;
+      min-height: 2.875rem;
+      border-radius: .875rem;
+      border: 1px solid #f1f1f4;
+      background: #fafafa;
+      padding: 0 .75rem;
+      color: #1f2937;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color .18s ease, background .18s ease;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    #recAmount { text-align: left; font-size: 1.25rem; font-weight: 900; letter-spacing: -.02em; }
+    #recRemark { font-size: 1rem; }
+    #recDate { font-size: .9375rem; font-weight: 600; padding-right: .625rem; }
+    #recAmount:focus, #recRemark:focus, #recDate:focus, #modalInputField:focus {
+      border-color: #ffa6bc; background: #fff;
+    }
+    #recAmount::placeholder { color: #d1d5db; font-weight: 700; }
+    #recDate::-webkit-date-and-time-value { text-align: left; }
+
+    .save-btn {
+      width: 100%;
+      min-height: 3.125rem;
+      border-radius: 1rem;
+      background: linear-gradient(90deg, #ff7599, #ff507a);
+      color: #fff;
+      font-size: .875rem;
+      font-weight: 800;
+      letter-spacing: .02em;
+      display: flex; align-items: center; justify-content: center;
+      gap: .375rem;
+      box-shadow: 0 .625rem 1.375rem -.75rem rgba(244, 63, 114, .95);
+      transition: transform .12s ease;
+    }
+    .save-btn:active { transform: scale(.98); }
+
+    /* ---------- 萌宠页 ---------- */
+    .pet-stage {
+      position: relative;
+      border-radius: var(--radius);
+      padding: 1.125rem 1rem;
+      text-align: center;
+      background: linear-gradient(180deg, #fffae8 0%, #eaf8e4 100%);
+      border: 1px solid #fff0f4;
+      box-shadow: 0 .5rem 1.5rem -.875rem rgba(150, 200, 150, .5);
+      overflow: hidden;
+    }
+    .pet-switch {
+      position: absolute; top: .625rem; right: .625rem; z-index: 10;
+      display: flex; align-items: center; gap: .0625rem;
+      padding: .125rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .9);
+      border: 1px solid #ffe4ed;
+      box-shadow: 0 .125rem .5rem rgba(0, 0, 0, .05);
+    }
+    .pet-switch button {
+      padding: .25rem .5625rem; border-radius: 999px;
+      font-size: .6875rem; font-weight: 800;
+      display: flex; align-items: center; gap: .1875rem;
+      transition: all .18s ease;
+    }
+    .pet-switch button.text-white { color: #fff; }
+    .pet-switch button.text-gray-500 { color: #9ca3af; }
+    .pet-switch button > span:first-child { font-size: .75rem; }
+    .pet-leaf { position: absolute; opacity: .7; line-height: 1; }
+    #petCharacter { width: 11rem; height: 11rem; margin: 0 auto; position: relative; transition: transform .2s ease; }
+    .pet-name-row { display: flex; align-items: center; justify-content: center; gap: .375rem; margin-top: .25rem; }
+    .pet-name-row h3 { margin: 0; font-size: 1rem; font-weight: 900; color: #1f2937; }
+    .pet-speech { margin: .25rem 0 0; font-size: .75rem; font-weight: 500; color: #9ca3af; }
+
+    .pet-bar-row { display: flex; align-items: center; gap: .5rem; }
+    .pet-bar-ico { font-size: .875rem; flex: 0 0 auto; }
+    .pet-bar-label { flex: 0 0 2.625rem; font-size: .71875rem; font-weight: 700; color: #6b7280; }
+    .pet-bar-track {
+      flex: 1 1 auto; min-width: 0; height: .625rem;
+      background: #fff0f5; border-radius: 999px;
+      padding: .125rem; border: 1px solid #ffe8ef;
+    }
+    .pet-bar-fill { height: 100%; border-radius: 999px; background: #ffa6bc; transition: width .32s ease; }
+    .pet-bar-val { flex: 0 0 2.375rem; text-align: right; font-size: .71875rem; font-weight: 800; color: #374151; }
+    .feed-btn {
+      width: 100%; min-height: 2.875rem; border-radius: 1rem;
+      background: #ffd4a3; color: #78350f;
+      font-size: .78125rem; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; gap: .375rem;
+      transition: transform .12s ease, background .18s ease;
+    }
+    .feed-btn:active { transform: scale(.97); }
+    .pet-log { font-size: .71875rem; color: #9ca3af; line-height: 1.7; }
+
+    /* ---------- 我的页 ---------- */
+    .profile-card { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 1.25rem 1rem; }
+    #myAvatarContainer { width: 4rem; height: 4rem; border-radius: 999px; background: #fff2f6; border: 2px solid #ffe4ed; padding: 2px; display: flex; align-items: center; justify-content: center; margin-bottom: .5rem; box-shadow: 0 .25rem .75rem -.375rem rgba(244,63,114,.5); }
+    .profile-name { display: flex; align-items: center; gap: .3125rem; font-size: 1rem; font-weight: 800; color: #1f2937; }
+    .profile-sub { font-size: .71875rem; color: #9ca3af; font-weight: 500; margin-top: .25rem; }
+
+    .setting-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: .625rem; padding: .625rem; border-radius: 1rem;
+      min-height: 3.5rem;
+      transition: background .18s ease;
+      cursor: pointer;
+    }
+    .setting-row:active { background: #fff7fa; }
+    .setting-left { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+    .setting-ico { flex: 0 0 auto; width: 2.125rem; height: 2.125rem; border-radius: .75rem; display: flex; align-items: center; justify-content: center; font-size: .9375rem; }
+    .setting-name { font-size: .78125rem; font-weight: 800; color: #1f2937; }
+    .setting-desc { font-size: .6875rem; color: #9ca3af; margin-top: .125rem; }
+    .setting-row > svg { flex: 0 0 auto; color: #d1d5db; }
+
+    .ghost-btn {
+      width: 100%; min-height: 2.875rem; border-radius: 1rem;
+      background: #fff; border: 1px solid #ffccd9; color: #e11d59;
+      font-size: .78125rem; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; gap: .375rem;
+      transition: transform .12s ease;
+    }
+    .ghost-btn:active { transform: scale(.98); }
+    .danger-link { width: 100%; padding: .625rem; font-size: .71875rem; color: #9ca3af; font-weight: 500; text-align: center; }
+
+    .section-head {
+      display: flex; align-items: center; gap: .3125rem;
+      font-size: .75rem; font-weight: 900; color: #374151;
+      margin-bottom: .5rem;
+    }
+
+    /* ---------- 悬浮同步按钮 ---------- */
+    .fab-sync {
+      position: absolute;
+      right: calc(var(--pad) + var(--sr));
+      bottom: calc(var(--nav-h) + var(--sb) + .875rem);
+      z-index: 25;
+      width: 2.75rem; height: 2.75rem; border-radius: 999px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255, 255, 255, .96);
+      border: 1px solid #ffe4ed;
+      color: #6b7280;
+      box-shadow: 0 .375rem 1.125rem -.375rem rgba(244, 63, 114, .45);
+      transition: transform .12s ease;
+    }
+    .fab-sync:active { transform: scale(.9); }
+
+    /* ---------- 底部导航 ---------- */
+    .app-nav {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      z-index: 30;
+      height: calc(var(--nav-h) + var(--sb));
+      padding-bottom: var(--sb);
+      display: flex; align-items: stretch;
+      background: rgba(255, 255, 255, .96);
+      -webkit-backdrop-filter: saturate(180%) blur(14px);
+      backdrop-filter: saturate(180%) blur(14px);
+      border-top: 1px solid rgba(255, 182, 193, .55);
+      box-shadow: 0 -.375rem 1.25rem -.875rem rgba(244, 63, 114, .5);
+    }
+    .app-nav > button {
+      flex: 1 1 0; min-width: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: .0625rem;
+      padding: .25rem 0 .125rem;
+      color: #9ca3af;
+      transition: color .18s ease, transform .12s ease;
+      touch-action: manipulation;
+    }
+    .app-nav > button:active { transform: scale(.94); }
+    .app-nav > button > span:first-child { font-size: 1.3125rem; line-height: 1.1; }
+    .nav-label { font-size: .6875rem; font-weight: 700; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .app-nav > button.text-pink-500 { color: #f43f72; }
+    .app-nav > button.text-gray-400 { color: #9ca3af; }
+
+    /* ---------- 弹层（移动端底部抽屉） ---------- */
+    .modal-mask {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      background: rgba(0, 0, 0, .42);
+      -webkit-backdrop-filter: blur(3px);
+      backdrop-filter: blur(3px);
+      padding-bottom: var(--kb, 0px);
+    }
+    .modal-mask.hidden { display: none !important; }
+    .sheet {
+      width: 100%;
+      max-width: 32.5rem;
+      max-height: 88dvh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      background: #fff;
+      border-radius: 1.5rem 1.5rem 0 0;
+      padding: .625rem 1rem calc(1rem + var(--sb));
+      box-shadow: 0 -0.75rem 2.5rem rgba(0, 0, 0, .18);
+      transform-origin: bottom center;
+      scrollbar-width: none;
+    }
+    .sheet::-webkit-scrollbar { display: none; }
+    .sheet::before {
+      content: "";
+      display: block;
+      width: 2.375rem; height: .25rem;
+      border-radius: 999px;
+      background: #f3d6df;
+      margin: 0 auto .75rem;
+    }
+    .sheet-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: .625rem; border-bottom: 1px solid #f3f4f6; }
+    .sheet-title { font-size: .8125rem; font-weight: 900; color: #1f2937; display: flex; align-items: center; gap: .375rem; }
+    .sheet-close { width: 1.875rem; height: 1.875rem; border-radius: 999px; background: #f3f4f6; color: #6b7280; display: flex; align-items: center; justify-content: center; }
+    .modal-emoji { width: 2.625rem; height: 2.625rem; border-radius: 999px; background: #ffe4ed; color: #f43f72; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; margin: 0 auto .5rem; }
+    .modal-heading { font-size: .875rem; font-weight: 800; color: #1f2937; margin: 0; }
+    .modal-desc { font-size: .75rem; color: #9ca3af; margin: .25rem 0 0; line-height: 1.6; }
+    .modal-actions { display: flex; gap: .5rem; margin-top: 1rem; }
+    .modal-actions button {
+      flex: 1 1 0; min-height: 2.875rem; border-radius: .875rem;
+      font-size: .8125rem; font-weight: 800;
+      transition: transform .12s ease;
+    }
+    .modal-actions button:active { transform: scale(.97); }
+    #modalBtnCancel { background: #f3f4f6; color: #4b5563; }
+    #modalBtnConfirm { background: #f43f72; color: #fff; box-shadow: 0 .375rem 1rem -.5rem rgba(244, 63, 114, .9); }
+    #modalInputFieldWrap { margin: .75rem 0 0; }
+
+    .sync-area { margin: .75rem 0; text-align: center; }
+    .qr-box { padding: .5rem; background: #fff; border-radius: .75rem; border: 1px solid #f3f4f6; width: fit-content; margin: 0 auto; }
+    #qrcode { display: flex; justify-content: center; }
+    #qrcode img, #qrcode canvas { border-radius: .625rem; }
+    .sync-tip { font-size: .71875rem; color: #9ca3af; margin: .625rem 0 0; }
+    .sync-row { display: flex; align-items: center; gap: .375rem; margin-top: .5rem; }
+    #syncShareUrl {
+      flex: 1 1 auto; min-width: 0;
+      height: 2.375rem;
+      font-size: .75rem;
+      background: #f3f4f6; color: #4b5563;
+      border: 0; border-radius: .625rem; padding: 0 .625rem;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .copy-btn { flex: 0 0 auto; height: 2.375rem; padding: 0 .75rem; background: #f43f72; color: #fff; border-radius: .625rem; font-size: .75rem; font-weight: 800; }
+
+    .cat-add-btn {
+      width: 100%; min-height: 2.875rem; border-radius: .875rem;
+      background: #fff0f5; color: #e11d59;
+      font-size: .78125rem; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; gap: .3125rem;
+    }
+    .cat-reset-btn { width: 100%; padding: .5rem; font-size: .71875rem; color: #9ca3af; }
+
+    /* ---------- Toast ---------- */
+    #toast {
+      position: fixed;
+      left: 50%;
+      top: calc(var(--st) + .875rem);
+      transform: translateX(-50%);
+      z-index: 80;
+      display: flex; align-items: center; gap: .375rem;
+      max-width: 88vw;
+      padding: .5625rem 1rem;
+      border-radius: 999px;
+      background: rgba(24, 24, 27, .86);
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      font-size: .78125rem;
+      font-weight: 600;
+      box-shadow: 0 .625rem 1.875rem -.625rem rgba(0, 0, 0, .6);
+      pointer-events: none;
+      transition: opacity .3s ease;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ---------- 矮屏微调 ---------- */
+    @media (max-height: 660px) {
+      .voice-block { padding-top: 0; }
+      #petCharacter { width: 9rem; height: 9rem; }
+    }
+
+    /* ---------- 真桌面（鼠标设备）才显示手机模拟框；手机上永远满屏 ---------- */
+    @media (min-width: 1024px) and (pointer: fine) and (hover: hover) {
+      html { font-size: 16px; }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        background: #fde8ee;
+      }
+      #appShell {
+        width: 24.375rem;
+        max-width: 24.375rem;
+        height: min(52.75rem, calc(100dvh - 3rem));
+        border-radius: 2.75rem;
+        border: 1px solid #fbcfe8;
+        box-shadow: 0 1.875rem 4.375rem -1.25rem rgba(244, 63, 114, .35);
+      }
+      .app-header { padding-top: 2.125rem; }
+      .modal-mask { align-items: center; }
+      .sheet { border-radius: 1.5rem; max-width: 21.25rem; max-height: 82dvh; padding-bottom: 1rem; }
+      .sheet::before { display: none; }
+    }
+
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    @keyframes heart-fly {
+      0% { transform: translate(-50%, 0) scale(.8); opacity: 1; }
+      100% { transform: translate(-50%, -60px) scale(1.6); opacity: 0; }
+    }
+    .heart-anim { position: absolute; animation: heart-fly .8s ease-out forwards; pointer-events: none; z-index: 50; }
+    @keyframes wiggle {
+      0%, 100% { transform: rotate(0deg); }
+      25% { transform: rotate(-6deg); }
+      75% { transform: rotate(6deg); }
+    }
+    .animate-wiggle { animation: wiggle .4s ease-in-out; }
+  </style>
+</head>
+<body class="antialiased">
+
+  <!-- 应用外壳：手机上 100% 铺满无留白 -->
+  <div id="appShell">
+
+    <!-- ================= 顶部个人信息 ================= -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="avatar-wrap" onclick="editUserProfile()" title="点击修改头像与昵称">
+          <div id="topAvatarContainer" class="rounded-full bg-white overflow-hidden flex items-center justify-center"></div>
+          <span id="syncIndicator" class="sync-dot" title="已启用多端同步"></span>
+        </div>
+        <div class="id-wrap" onclick="editUserProfile()" title="点击修改昵称">
+          <div class="id-line">
+            <h1 id="topUserIdText">ovo</h1>
+            <i data-lucide="edit-3" class="w-3 h-3"></i>
+          </div>
+          <p class="id-sub">日富一日，年富一年 <span>💕</span></p>
+        </div>
+      </div>
+      <div class="date-pill"><span id="currentDateBadge">11月1日</span></div>
+    </header>
+
+    <!-- ================= 主内容区 ================= -->
+    <main id="appMain" class="no-scrollbar">
+
+      <!-- ---------- 视图 1：看板 ---------- -->
+      <section id="viewDashboard" class="view-section">
+        <div class="card">
+          <div class="stats-grid">
+            <div class="stat-card" style="background:#ffedf2">
+              <span class="stat-ico">💰</span>
+              <span class="stat-label">结余</span>
+              <div class="stat-value" id="dashBalance">¥0.00</div>
+            </div>
+            <div class="stat-card" style="background:#eafaf1">
+              <span class="stat-ico">📈</span>
+              <span class="stat-label">总收入</span>
+              <div class="stat-value is-income" id="dashIncome">¥0.00</div>
+            </div>
+            <div class="stat-card" style="background:#fff0f4">
+              <span class="stat-ico">📉</span>
+              <span class="stat-label">总支出</span>
+              <div class="stat-value" id="dashExpense">¥0.00</div>
+            </div>
+            <div class="stat-card" style="background:#fff7ec">
+              <span class="stat-ico">💳</span>
+              <span class="stat-label">剩余负债</span>
+              <div class="stat-value is-debt" id="dashDebt">¥0.00</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="cal-head">
+            <button class="cal-nav" onclick="prevMonth()" aria-label="上个月">
+              <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            </button>
+            <h2 id="calendarTitle">2026年11月</h2>
+            <button class="cal-nav" onclick="nextMonth()" aria-label="下个月">
+              <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div class="cal-week">
+            <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+          </div>
+          <div id="calendarGrid"></div>
+        </div>
+
+        <div class="card">
+          <div class="detail-head">
+            <div class="detail-title-wrap">
+              <span class="detail-title" id="selectedDateTitle">11月1日 明细</span>
+              <span class="badge" id="selectedCountBadge">0笔</span>
+            </div>
+            <button class="link-btn" onclick="switchTab('record')">+ 记一笔</button>
+          </div>
+          <div id="selectedRecordsList" class="no-scrollbar"></div>
+        </div>
+      </section>
+
+      <!-- ---------- 视图 2：记账 ---------- -->
+      <section id="viewRecord" class="view-section hidden">
+        <div class="voice-block">
+          <div class="voice-ripple-wrap">
+            <button id="voiceBtn" class="voice-btn" onclick="handleVoiceInput()" aria-label="语音记账">
+              <i data-lucide="mic" class="w-8 h-8"></i>
+            </button>
+            <span id="voiceRipple" class="hidden voice-ripple"></span>
+          </div>
+          <span id="voiceHint" class="voice-hint">点击开始语音记账</span>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">📝 手动记账</h3>
+
+          <div class="type-switch">
+            <button type="button" id="typeExpBtn" onclick="setRecordType('expense')" class="border-[#ff7096] bg-[#fff0f4] text-[#ff4d79]">
+              <i data-lucide="minus" class="w-3.5 h-3.5"></i>
+              <span>支出</span>
+            </button>
+            <button type="button" id="typeIncBtn" onclick="setRecordType('income')" class="border-gray-100 bg-gray-50 text-gray-500">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              <span>收入</span>
+            </button>
+          </div>
+
+          <div class="cat-block">
+            <div class="cat-head">
+              <span class="field-label" style="margin:0">选择分类</span>
+              <button onclick="openCategoryManagerModal()" class="link-btn" style="display:flex;align-items:center;gap:.25rem">
+                <i data-lucide="settings" class="w-3 h-3"></i>
+                <span>管理分类</span>
+              </button>
+            </div>
+            <div id="categoriesGrid" class="cat-grid"></div>
+          </div>
+
+          <div class="form-stack">
+            <div>
+              <label class="field-label" for="recAmount">金额</label>
+              <input id="recAmount" type="number" step="0.01" inputmode="decimal" placeholder="¥0.00" />
+            </div>
+            <div>
+              <label class="field-label" for="recRemark">备注（可选）</label>
+              <input id="recRemark" type="text" placeholder="例如：午餐麻辣烫" />
+            </div>
+            <div>
+              <label class="field-label" for="recDate">日期</label>
+              <input id="recDate" type="date" />
+            </div>
+            <button class="save-btn" onclick="saveRecordFromForm()">
+              <i data-lucide="save" class="w-4 h-4"></i>
+              <span>记一笔</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- 视图 3：萌宠 ---------- -->
+      <section id="viewPet" class="view-section hidden">
+        <div class="pet-stage" onclick="clickPetAction(event)">
+          <div class="pet-switch" onclick="event.stopPropagation()">
+            <button id="petTypeCatBtn" onclick="switchPetType('cat')"><span>🐱</span><span>小猫</span></button>
+            <button id="petTypeDogBtn" onclick="switchPetType('dog')"><span>🐶</span><span>小狗</span></button>
+          </div>
+
+          <span class="pet-leaf" style="left:.875rem;bottom:2.875rem;font-size:1.125rem">🌿</span>
+          <span class="pet-leaf" style="right:1rem;bottom:3.625rem;font-size:1.25rem">🌱</span>
+
+          <div id="petCharacter"></div>
+
+          <div class="pet-name-row" onclick="event.stopPropagation(); editPetName();" title="点击修改宠物名字">
+            <h3 id="petNameDisplay">豆豆</h3>
+            <i data-lucide="edit-2" class="w-3.5 h-3.5" style="color:#ff7096"></i>
+          </div>
+          <p class="pet-speech" id="petSpeech">快摸摸我~ 喵呜</p>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.875rem">
+            <h4 style="margin:0;font-size:.78125rem;font-weight:900;color:#1f2937;display:flex;align-items:center;gap:.25rem">
+              <span>🐾</span><span id="petStatusTitle">豆豆的状态</span>
+            </h4>
+            <span class="badge" id="petRecordBadge">0次记账</span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:.625rem">
+            <div class="pet-bar-row">
+              <span class="pet-bar-ico">😄</span>
+              <span class="pet-bar-label">开心</span>
+              <div class="pet-bar-track"><div id="barMood" class="pet-bar-fill" style="width:50%"></div></div>
+              <span class="pet-bar-val" id="valMood">50%</span>
+            </div>
+            <div class="pet-bar-row">
+              <span class="pet-bar-ico">🐟</span>
+              <span class="pet-bar-label">饱腹</span>
+              <div class="pet-bar-track"><div id="barFull" class="pet-bar-fill" style="width:70%"></div></div>
+              <span class="pet-bar-val" id="valFull">70%</span>
+            </div>
+            <div class="pet-bar-row">
+              <span class="pet-bar-ico">🥫</span>
+              <span class="pet-bar-label">零食</span>
+              <div class="pet-bar-track"><div id="barSnack" class="pet-bar-fill" style="width:0%"></div></div>
+              <span class="pet-bar-val" id="valSnack">0/10</span>
+            </div>
+          </div>
+
+          <button id="feedBtn" onclick="feedPet()" class="feed-btn" style="margin-top:.875rem">
+            <span>🐟 暂无猫条，快去记账吧</span>
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="section-head"><span>📝</span><span>互动日志</span></div>
+          <div id="petLogsList" class="pet-log" style="text-align:center;min-height:2.5rem"></div>
+        </div>
+      </section>
+
+      <!-- ---------- 视图 4：我的 ---------- -->
+      <section id="viewMy" class="view-section hidden">
+        <div class="card profile-card" onclick="editUserProfile()" title="点击修改头像与昵称">
+          <div id="myAvatarContainer"></div>
+          <div class="profile-name">
+            <span id="myUserIdText">ovo</span>
+            <i data-lucide="edit-3" class="w-3.5 h-3.5" style="color:#ff7096"></i>
+          </div>
+          <p class="profile-sub">记账 · 养宠 · 存钱</p>
+        </div>
+
+        <div class="card" style="padding:.625rem">
+          <div style="padding:.375rem .5rem .5rem">
+            <div class="section-head" style="margin-bottom:0"><span>⚙️</span><span>设置</span></div>
+          </div>
+          <div>
+            <div class="setting-row" onclick="editProfileValue('budget')">
+              <div class="setting-left">
+                <div class="setting-ico" style="background:#fff1f2">📊</div>
+                <div style="min-width:0">
+                  <div class="setting-name">月度预算</div>
+                  <div class="setting-desc" id="lblBudget">¥5,000.00/月</div>
+                </div>
+              </div>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            </div>
+            <div class="setting-row" onclick="editProfileValue('savingsGoal')">
+              <div class="setting-left">
+                <div class="setting-ico" style="background:#ecfdf5">🏦</div>
+                <div style="min-width:0">
+                  <div class="setting-name">存款目标</div>
+                  <div class="setting-desc" id="lblSavingsGoal">¥1.0w</div>
+                </div>
+              </div>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            </div>
+            <div class="setting-row" onclick="editProfileValue('debt')">
+              <div class="setting-left">
+                <div class="setting-ico" style="background:#fffbeb">💳</div>
+                <div style="min-width:0">
+                  <div class="setting-name">剩余负债</div>
+                  <div class="setting-desc" id="lblDebt">¥0.00</div>
+                </div>
+              </div>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            </div>
+            <div class="setting-row" onclick="doMonthSettlement()">
+              <div class="setting-left">
+                <div class="setting-ico" style="background:#f5f3ff">🗓️</div>
+                <div style="min-width:0">
+                  <div class="setting-name">月底资产结算</div>
+                  <div class="setting-desc" id="lblSettlement">本月未结算</div>
+                </div>
+              </div>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-head"><span>📋</span><span>历史结算</span></div>
+          <div id="settlementLogs" style="text-align:center;font-size:.75rem;color:#9ca3af;padding:.375rem 0">
+            暂无结算记录
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:.5rem;padding-bottom:.25rem">
+          <button class="ghost-btn" onclick="openSyncModal()">
+            <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+            <span>多端同步（手机与电脑互通）</span>
+          </button>
+          <button class="danger-link" onclick="confirmClearData()">重置并初始化数据</button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 悬浮同步按钮 -->
+    <button class="fab-sync" onclick="openSyncModal()" title="手机电脑多端同步" aria-label="多端同步">
+      <i data-lucide="link" class="w-4 h-4"></i>
+    </button>
+
+    <!-- 底部导航 -->
+    <nav class="app-nav">
+      <button onclick="switchTab('dashboard')" id="nav-dashboard" class="text-pink-500 font-bold">
+        <span class="text-xl">🏠</span><span class="nav-label">看板</span>
+      </button>
+      <button onclick="switchTab('record')" id="nav-record" class="text-gray-400">
+        <span class="text-xl">📝</span><span class="nav-label">记账</span>
+      </button>
+      <button onclick="switchTab('pet')" id="nav-pet" class="text-gray-400">
+        <span class="text-xl">🐱</span><span id="navPetName" class="nav-label">豆豆</span>
+      </button>
+      <button onclick="switchTab('my')" id="nav-my" class="text-gray-400">
+        <span class="text-xl">👤</span><span class="nav-label">我的</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- ================= 通用弹窗（移动端底部抽屉） ================= -->
+  <div id="appModal" class="modal-mask hidden">
+    <div id="modalBox" class="sheet scale-95 opacity-0 transition-all duration-200">
+      <div style="text-align:center">
+        <div id="modalEmoji" class="modal-emoji">✨</div>
+        <h4 id="modalHeading" class="modal-heading">提示</h4>
+        <p id="modalDesc" class="modal-desc">详细描述</p>
+      </div>
+
+      <div id="modalInputFieldWrap" class="hidden">
+        <input id="modalInputField" type="text" />
+      </div>
+
+      <!-- 二维码与多端同步容器 -->
+      <div id="syncCodeArea" class="hidden sync-area">
+        <div id="qrcode" class="qr-box"></div>
+        <p class="sync-tip">手机扫码或电脑浏览器打开此链接：</p>
+        <div class="sync-row">
+          <input id="syncShareUrl" readonly />
+          <button onclick="copySyncLink()" class="copy-btn">复制</button>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="modalBtnCancel" onclick="closeAppModal()">取消</button>
+        <button id="modalBtnConfirm">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 分类管理弹窗 ================= -->
+  <div id="categoryManagerModal" class="modal-mask hidden">
+    <div class="sheet" style="display:flex;flex-direction:column">
+      <div class="sheet-head" style="flex:0 0 auto">
+        <div class="sheet-title"><span>⚙️</span><span>分类管理</span></div>
+        <button class="sheet-close" onclick="closeCategoryManagerModal()" aria-label="关闭">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+
+      <div id="categoryManagerList" class="no-scrollbar" style="flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:.5rem;margin:.75rem 0"></div>
+
+      <div style="flex:0 0 auto;display:flex;flex-direction:column;gap:.375rem;padding-top:.625rem;border-top:1px solid #f3f4f6">
+        <button onclick="promptAddNewCategory()" class="cat-add-btn">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i><span>添加新分类</span>
+        </button>
+        <button onclick="resetCategoriesToDefault()" class="cat-reset-btn">恢复默认8大分类</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 轻吐司 -->
+  <div id="toast" class="opacity-0">
+    <span id="toastIcon">✨</span>
+    <span id="toastText">操作成功</span>
+  </div>
+
+  <script>
+    /* ---------- 键盘弹起时抽屉上移 ---------- */
+    (function () {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const apply = () => {
+        const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+        document.documentElement.style.setProperty('--kb', kb + 'px');
+      };
+      vv.addEventListener('resize', apply);
+      vv.addEventListener('scroll', apply);
+      window.addEventListener('orientationchange', () => setTimeout(apply, 300));
+      apply();
+    })();
+  </script>
+
+  <script>
+    /* =======================================================================
+       1. 分类与头像默认配置
+    ======================================================================= */
+    const DEFAULT_CATEGORIES = [
+      { id: 'food', name: '餐饮', icon: '🍜' },
+      { id: 'traffic', name: '交通', icon: '🚗' },
+      { id: 'shopping', name: '购物', icon: '🛍️' },
+      { id: 'fun', name: '娱乐', icon: '🎮' },
+      { id: 'life', name: '生活', icon: '🏠' },
+      { id: 'comm', name: '通讯', icon: '📱' },
+      { id: 'medical', name: '医疗', icon: '💊' },
+      { id: 'other', name: '其他', icon: '📦' },
+    ];
+
+    const AVATAR_OPTIONS = [
+      { id: 'girl', name: '软萌粉妹', svg: `<svg viewBox="0 0 100 100" class="w-full h-full"><ellipse cx="50" cy="24" rx="14" ry="10" fill="#ffffff" stroke="#ffb8c9" stroke-width="2"/><circle cx="50" cy="56" r="30" fill="#fff" stroke="#ffc0d0" stroke-width="2"/><ellipse cx="50" cy="62" rx="21" ry="19" fill="#FFF9F5"/><path d="M 30 52 Q 40 64 50 54 Q 60 64 70 52" stroke="#ffb6c7" stroke-width="2.5" fill="none"/><ellipse cx="36" cy="68" rx="4" ry="2.5" fill="#ffaec0" opacity="0.7"/><ellipse cx="64" cy="68" rx="4" ry="2.5" fill="#ffaec0" opacity="0.7"/><path d="M 40 62 Q 43 65 46 62" stroke="#483d3f" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M 54 62 Q 57 65 60 62" stroke="#483d3f" stroke-width="2" stroke-linecap="round" fill="none"/></svg>` },
+      { id: 'cat', name: '银渐层猫', svg: `<svg viewBox="0 0 100 100" class="w-full h-full"><circle cx="50" cy="54" r="32" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2"/><path d="M 32 36 L 24 16 L 44 26 Z" fill="#e2e8f0" stroke="#94a3b8" stroke-width="2"/><path d="M 68 36 L 76 16 L 56 26 Z" fill="#e2e8f0" stroke="#94a3b8" stroke-width="2"/><circle cx="40" cy="52" r="5" fill="#10b981"/><circle cx="40" cy="52" r="2.5" fill="#0f172a"/><circle cx="60" cy="52" r="5" fill="#10b981"/><circle cx="60" cy="52" r="2.5" fill="#0f172a"/><path d="M 48 60 L 52 60 L 50 63 Z" fill="#f43f5e"/><ellipse cx="33" cy="58" rx="4" ry="2" fill="#ff7f97" opacity="0.5"/><ellipse cx="67" cy="58" rx="4" ry="2" fill="#ff7f97" opacity="0.5"/></svg>` },
+      { id: 'bunny', name: '垂耳兔', svg: `<svg viewBox="0 0 100 100" class="w-full h-full"><circle cx="50" cy="58" r="28" fill="#fff" stroke="#fbcfe8" stroke-width="2"/><ellipse cx="32" cy="38" rx="7" ry="20" transform="rotate(-15 32 38)" fill="#fff" stroke="#fbcfe8" stroke-width="2"/><ellipse cx="68" cy="38" rx="7" ry="20" transform="rotate(15 68 38)" fill="#fff" stroke="#fbcfe8" stroke-width="2"/><circle cx="42" cy="56" r="3" fill="#475569"/><circle cx="58" cy="56" r="3" fill="#475569"/><ellipse cx="50" cy="62" rx="2.5" ry="1.8" fill="#f472b6"/></svg>` },
+      { id: 'bear', name: '奶糖小熊', svg: `<svg viewBox="0 0 100 100" class="w-full h-full"><circle cx="32" cy="32" r="12" fill="#fed7aa" stroke="#fb923c" stroke-width="1.5"/><circle cx="68" cy="32" r="12" fill="#fed7aa" stroke="#fb923c" stroke-width="1.5"/><circle cx="50" cy="58" r="30" fill="#ffedd5" stroke="#fb923c" stroke-width="2"/><circle cx="42" cy="54" r="3.5" fill="#431407"/><circle cx="58" cy="54" r="3.5" fill="#431407"/><ellipse cx="50" cy="64" rx="10" ry="7" fill="#fff"/><ellipse cx="50" cy="62" rx="3.5" ry="2.5" fill="#7c2d12"/></svg>` }
+    ];
+
+    /* =======================================================================
+       2. 全局状态与同步架构
+    ======================================================================= */
+    function getBookId() {
+      const urlParams = new URLSearchParams(window.location.search);
+      let bId = urlParams.get('bookId');
+      if (!bId) {
+        bId = localStorage.getItem('ovo_active_book_id');
+      }
+      if (!bId) {
+        bId = 'ovo_' + Math.random().toString(36).substring(2, 9);
+      }
+      localStorage.setItem('ovo_active_book_id', bId);
+      return bId;
+    }
+
+    const currentBookId = getBookId();
+
+    let state = {
+      user: {
+        id: 'ovo',
+        avatarType: 'girl',
+        avatarCustom: ''
+      },
+      categories: [...DEFAULT_CATEGORIES],
+      records: [],
+      config: {
+        budget: 5000,
+        savingsGoal: 10000,
+        debt: 0,
+        settledMonths: []
+      },
+      pet: {
+        type: 'cat', // 'cat' 或 'dog'
+        name: '豆豆',
+        breed: '银渐层长毛猫',
+        mood: 50,
+        full: 70,
+        snacks: 0,
+        recordsCount: 2,
+        logs: ['小猫咪正在等您记账投喂冻干呢~']
+      }
+    };
+
+    let selectedDate = new Date().toISOString().slice(0, 10);
+    let calendarDate = new Date();
+    let currentTab = 'dashboard';
+
+    let formState = {
+      type: 'expense',
+      category: 'food',
+      date: new Date().toISOString().slice(0, 10)
+    };
+
+    // 跨端广播通道
+    let broadcastChannel;
+    try {
+      broadcastChannel = new BroadcastChannel('ovo_sync_' + currentBookId);
+      broadcastChannel.onmessage = (event) => {
+        if (event.data && event.data.type === 'DATA_UPDATE') {
+          state = event.data.payload;
+          refreshUI();
+          showToast('已从其他端同步最新账本', '🔄');
+        }
+      };
+    } catch (e) {
+      console.warn('BroadcastChannel not supported');
+    }
+
+    function loadState() {
+      try {
+        const localData = localStorage.getItem('ovo_data_' + currentBookId);
+        if (localData) {
+          const parsed = JSON.parse(localData);
+          state = { ...state, ...parsed };
+          if (!state.categories || state.categories.length === 0) {
+            state.categories = [...DEFAULT_CATEGORIES];
+          }
+          if (!state.user) state.user = { id: 'ovo', avatarType: 'girl', avatarCustom: '' };
+          if (state.user.avatarCustom === undefined) state.user.avatarCustom = '';
+          if (!state.pet.name) state.pet.name = '豆豆';
+          if (!state.pet.type) state.pet.type = 'cat';
+        } else {
+          const today = new Date().toISOString().slice(0, 10);
+          state = {
+            user: { id: 'ovo', avatarType: 'girl' },
+            categories: [...DEFAULT_CATEGORIES],
+            records: [
+              { id: '1', type: 'expense', category: 'food', amount: 30, remark: '午餐麻辣烫', date: today, timestamp: Date.now() - 3600000 },
+              { id: '2', type: 'expense', category: 'comm', amount: 99, remark: '手机话费', date: today, timestamp: Date.now() - 7200000 }
+            ],
+            config: {
+              budget: 5000,
+              savingsGoal: 10000,
+              debt: 0,
+              settledMonths: []
+            },
+            pet: {
+              type: 'cat',
+              name: '豆豆',
+              breed: '银渐层长毛猫',
+              mood: 50,
+              full: 70,
+              snacks: 0,
+              recordsCount: 2,
+              logs: ['长毛银渐层小猫正在等您记账投喂冻干呢~']
+            }
+          };
+          saveState(false);
+        }
+      } catch (err) {
+        console.error('Data load error', err);
+      }
+    }
+
+    function saveState(broadcast = true) {
+      try {
+        localStorage.setItem('ovo_data_' + currentBookId, JSON.stringify(state));
+        if (broadcast && broadcastChannel) {
+          broadcastChannel.postMessage({ type: 'DATA_UPDATE', payload: state });
+        }
+      } catch (err) {
+        console.error('Data save error', err);
+      }
+      refreshUI();
+    }
+
+    function getAvatarSVG(type) {
+      const found = AVATAR_OPTIONS.find(a => a.id === type);
+      return found ? found.svg : AVATAR_OPTIONS[0].svg;
+    }
+
+    // 头像渲染：支持「上传的图片」与「内置 SVG」两种来源
+    function avatarMarkupOf(user) {
+      const u = user || state.user || {};
+      if (u.avatarType === 'custom' && u.avatarCustom) {
+        return `<img src="${u.avatarCustom}" alt="我的头像" draggable="false" style="width:100%;height:100%;object-fit:cover;border-radius:999px;display:block;">`;
+      }
+      return getAvatarSVG(u.avatarType);
+    }
+
+    // 图片压缩为正方形头像（256px JPEG，约 20~40KB，避免撑爆 localStorage）
+    function compressAvatar(file, size = 256) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const side = Math.min(img.naturalWidth || img.width, img.naturalHeight || img.height);
+            const sx = Math.max(0, ((img.naturalWidth || img.width) - side) / 2);
+            const sy = Math.max(0, ((img.naturalHeight || img.height) - side) / 2);
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, size, size);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+            URL.revokeObjectURL(url);
+            resolve(canvas.toDataURL('image/jpeg', 0.86));
+          } catch (err) {
+            URL.revokeObjectURL(url);
+            reject(err);
+          }
+        };
+        img.onerror = (err) => {
+          URL.revokeObjectURL(url);
+          reject(err);
+        };
+        img.src = url;
+      });
+    }
+
+    /* =======================================================================
+       3. 页面切换与整体 UI 刷新
+    ======================================================================= */
+    function switchTab(tabId) {
+      currentTab = tabId;
+      const tabs = ['dashboard', 'record', 'pet', 'my'];
+      tabs.forEach(t => {
+        const view = document.getElementById('view' + t.charAt(0).toUpperCase() + t.slice(1));
+        const navBtn = document.getElementById('nav-' + t);
+        if (t === tabId) {
+          view.classList.remove('hidden');
+          navBtn.classList.remove('text-gray-400');
+          navBtn.classList.add('text-pink-500', 'font-bold');
+        } else {
+          view.classList.add('hidden');
+          navBtn.classList.remove('text-pink-500', 'font-bold');
+          navBtn.classList.add('text-gray-400');
+        }
+      });
+      lucide.createIcons();
+    }
+
+    function refreshUI() {
+      // 刷新用户头像与ID
+      const avatarHtml = avatarMarkupOf(state.user);
+      document.getElementById('topAvatarContainer').innerHTML = avatarHtml;
+      document.getElementById('myAvatarContainer').innerHTML = avatarHtml;
+      document.getElementById('topUserIdText').innerText = state.user.id || 'ovo';
+      document.getElementById('myUserIdText').innerText = state.user.id || 'ovo';
+
+      // 刷新宠物名字与底部导航图标
+      const petName = state.pet.name || '豆豆';
+      const isCat = (state.pet.type || 'cat') === 'cat';
+      document.getElementById('petNameDisplay').innerText = petName;
+      document.getElementById('petStatusTitle').innerText = `${petName}的状态`;
+      document.getElementById('navPetName').innerText = petName;
+      const navPetIcon = document.querySelector('#nav-pet span.text-xl');
+      if (navPetIcon) navPetIcon.innerText = isCat ? '🐱' : '🐶';
+
+      renderDashboard();
+      renderRecordSection();
+      renderPetSection();
+      renderMySection();
+      lucide.createIcons();
+    }
+
+    /* =======================================================================
+       4. 个人信息与宠物设置
+    ======================================================================= */
+    function switchPetType(type) {
+      if (state.pet.type === type) return;
+      state.pet.type = type;
+      if (type === 'cat') {
+        state.pet.breed = '银渐层长毛猫';
+        state.pet.logs.unshift('迎来了软萌的银渐层长毛猫咪🐾');
+      } else {
+        state.pet.breed = '元气小狗';
+        state.pet.logs.unshift('迎来了元气满满的大耳朵小柴犬🐶');
+      }
+      if (state.pet.logs.length > 6) state.pet.logs.pop();
+      saveState();
+      showToast(`已切换为${type === 'cat' ? '银渐层小猫 🐱' : '元气小狗 🐶'}`, '✨');
+    }
+
+    function editUserProfile() {
+      const currentName = state.user.id || 'ovo';
+      const currentAvatar = state.user.avatarType || 'girl';
+      const currentCustom = state.user.avatarCustom || '';
+
+      const avatarGridHtml = `
+        <div class="mb-2 text-left">
+          <label class="text-[11px] font-bold text-gray-500 mb-1.5 block">选择头像：</label>
+          <div class="grid grid-cols-4 gap-2" id="avatarSelectorBox">
+            ${AVATAR_OPTIONS.map(a => `
+              <div onclick="selectAvatarOption('${a.id}')" id="avatarOpt_${a.id}" class="w-12 h-12 mx-auto rounded-full p-1 cursor-pointer border-2 transition ${a.id === currentAvatar ? 'border-pink-500 bg-pink-50 scale-105' : 'border-gray-200 hover:border-pink-200'}">
+                ${a.svg}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        <input type="file" id="avatarFileInput" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0);border:0;padding:0;margin:-1px;">
+        <label for="avatarFileInput" id="avatarUploadBtn" role="button"
+          class="w-full mb-1 rounded-xl border-2 border-dashed border-pink-200 bg-pink-50/60 text-pink-500 font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+          style="min-height:2.75rem;font-size:.8125rem;">
+          <img id="avatarUploadPreview" alt="" style="${currentCustom ? '' : 'display:none;'}width:1.375rem;height:1.375rem;border-radius:999px;object-fit:cover;">
+          <span id="avatarUploadText">${currentAvatar === 'custom' && currentCustom ? '已用自定义照片，点击重选' : '📷 上传自己的照片'}</span>
+        </label>
+      `;
+
+      let tempAvatarType = currentAvatar;
+      let tempAvatarCustom = currentCustom;
+
+      function syncAvatarTiles() {
+        AVATAR_OPTIONS.forEach(a => {
+          const el = document.getElementById('avatarOpt_' + a.id);
+          if (!el) return;
+          el.className = (a.id === tempAvatarType)
+            ? 'w-12 h-12 mx-auto rounded-full p-1 cursor-pointer border-2 transition border-pink-500 bg-pink-50 scale-105'
+            : 'w-12 h-12 mx-auto rounded-full p-1 cursor-pointer border-2 transition border-gray-200 hover:border-pink-200';
+        });
+        const btn = document.getElementById('avatarUploadBtn');
+        const img = document.getElementById('avatarUploadPreview');
+        const txt = document.getElementById('avatarUploadText');
+        if (btn) {
+          btn.className = (tempAvatarType === 'custom')
+            ? 'w-full mb-1 rounded-xl border-2 border-pink-400 bg-pink-100 text-pink-600 font-bold flex items-center justify-center gap-1.5 transition cursor-pointer'
+            : 'w-full mb-1 rounded-xl border-2 border-dashed border-pink-200 bg-pink-50/60 text-pink-500 font-bold flex items-center justify-center gap-1.5 transition cursor-pointer';
+        }
+        if (img) {
+          if (tempAvatarCustom) {
+            img.src = tempAvatarCustom;
+            img.style.display = 'block';
+          } else {
+            img.style.display = 'none';
+          }
+        }
+        if (txt) {
+          txt.innerText = (tempAvatarType === 'custom')
+            ? '已使用自定义照片，点击重选'
+            : (tempAvatarCustom ? '📷 使用已上传的照片' : '📷 上传自己的照片');
+        }
+      }
+
+      window.selectAvatarOption = (id) => {
+        tempAvatarType = id;
+        syncAvatarTiles();
+      };
+
+      window.pickAvatarFile = () => {
+        const input = document.getElementById('avatarFileInput');
+        if (input) input.click();
+      };
+
+      openAppModal({
+        heading: '修改用户资料',
+        desc: '选择心仪头像，或上传一张自己的照片：',
+        emoji: '✨',
+        inputValue: currentName,
+        customHtml: avatarGridHtml,
+        autoFocus: false,
+        onConfirm: (val) => {
+          const trimmed = val ? val.trim() : '';
+          state.user.id = trimmed || 'ovo';
+          if (tempAvatarType === 'custom') {
+            if (!tempAvatarCustom) {
+              showToast('请先上传一张照片哦', '📷');
+              return;
+            }
+            state.user.avatarType = 'custom';
+            state.user.avatarCustom = tempAvatarCustom;
+          } else {
+            state.user.avatarType = tempAvatarType;
+          }
+          saveState();
+          showToast('资料已更新！', '🌸');
+        }
+      });
+
+      // 绑定文件选择（图片本地压缩后转 Base64，不经过服务器）
+      const fileInput = document.getElementById('avatarFileInput');
+      if (fileInput) {
+        fileInput.addEventListener('change', async (e) => {
+          const file = e.target.files && e.target.files[0];
+          e.target.value = '';
+          if (!file) return;
+          if (!/^image\//.test(file.type)) {
+            showToast('请选择图片文件', '⚠️');
+            return;
+          }
+          showToast('正在处理照片…', '⏳');
+          try {
+            tempAvatarCustom = await compressAvatar(file);
+            tempAvatarType = 'custom';
+            syncAvatarTiles();
+            showToast('照片已选好，点「保存」生效', '✅');
+          } catch (err) {
+            console.error('Avatar load error', err);
+            showToast('这张图读不出来，换一张试试', '⚠️');
+          }
+        });
+      }
+      syncAvatarTiles();
+    }
+
+    function editPetName() {
+      const currentName = state.pet.name || '豆豆';
+      const isCat = (state.pet.type || 'cat') === 'cat';
+      openAppModal({
+        heading: '为萌宠取个新名字',
+        desc: `${isCat ? '长毛银渐层小猫' : '大耳朵小狗'}想叫什么名字呢？`,
+        emoji: isCat ? '🐱' : '🐶',
+        inputValue: currentName,
+        onConfirm: (val) => {
+          const trimmed = val ? val.trim() : '';
+          state.pet.name = trimmed || '豆豆';
+          state.pet.logs.unshift(`萌宠有了新名字叫「${state.pet.name}」啦~`);
+          if (state.pet.logs.length > 6) state.pet.logs.pop();
+          saveState();
+          showToast(`已改名为「${state.pet.name}」🐾`, '✨');
+        }
+      });
+    }
+
+    /* =======================================================================
+       5. 分类管理功能 (增删改)
+    ======================================================================= */
+    function openCategoryManagerModal() {
+      renderCategoryManagerList();
+      document.getElementById('categoryManagerModal').classList.remove('hidden');
+    }
+
+    function closeCategoryManagerModal() {
+      document.getElementById('categoryManagerModal').classList.add('hidden');
+    }
+
+    function renderCategoryManagerList() {
+      const list = document.getElementById('categoryManagerList');
+      list.innerHTML = state.categories.map((c, idx) => `
+        <div class="flex items-center justify-between p-2 rounded-xl bg-gray-50 border border-gray-100">
+          <div class="flex items-center space-x-2">
+            <span class="text-xl cursor-pointer hover:scale-110 transition" onclick="editCategoryItem(${idx})" title="点击更换图标">${c.icon}</span>
+            <span class="text-xs font-bold text-gray-800">${c.name}</span>
+          </div>
+          <div class="flex items-center space-x-1">
+            <button onclick="editCategoryItem(${idx})" class="text-gray-400 hover:text-pink-500 p-1">
+              <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+            </button>
+            <button onclick="deleteCategoryItem(${idx})" class="text-gray-300 hover:text-red-500 p-1">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    function editCategoryItem(index) {
+      const cat = state.categories[index];
+      const emojis = ['🍜', '🚗', '🛍️', '🎮', '🏠', '📱', '💊', '📦', '☕', '🐱', '💄', '✈️', '🏋️', '📚', '🎬', '🎁'];
+      const emojiPickHtml = `
+        <div class="mb-3 text-left">
+          <label class="text-[11px] font-bold text-gray-500 mb-1 block">选择图标：</label>
+          <div class="grid grid-cols-8 gap-1.5 text-center text-lg py-1 bg-gray-50 rounded-xl p-1.5" id="catEmojiGrid">
+            ${emojis.map(e => `
+              <span class="cursor-pointer hover:scale-125 transition p-1 rounded ${e === cat.icon ? 'bg-pink-100' : ''}" onclick="selectTempCatEmoji('${e}')">${e}</span>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      let selectedEmoji = cat.icon;
+      window.selectTempCatEmoji = (e) => {
+        selectedEmoji = e;
+        const spans = document.querySelectorAll('#catEmojiGrid span');
+        spans.forEach(s => {
+          s.className = (s.innerText === e) ? 'cursor-pointer hover:scale-125 transition p-1 rounded bg-pink-100' : 'cursor-pointer hover:scale-125 transition p-1 rounded';
+        });
+      };
+
+      openAppModal({
+        heading: '编辑分类',
+        desc: '修改分类名称与展示图标：',
+        emoji: '🏷️',
+        inputValue: cat.name,
+        customHtml: emojiPickHtml,
+        onConfirm: (val) => {
+          const name = val ? val.trim() : cat.name;
+          state.categories[index].name = name || cat.name;
+          state.categories[index].icon = selectedEmoji;
+          saveState();
+          renderCategoryManagerList();
+          showToast('分类修改成功！', '✅');
+        }
+      });
+    }
+
+    function promptAddNewCategory() {
+      const emojis = ['☕', '🐱', '💄', '✈️', '🏋️', '📚', '🎬', '🎁', '🍰', '🍼', '💻', '🎸'];
+      let selectedEmoji = '☕';
+
+      const emojiPickHtml = `
+        <div class="mb-3 text-left">
+          <label class="text-[11px] font-bold text-gray-500 mb-1 block">选择图标：</label>
+          <div class="grid grid-cols-6 gap-1.5 text-center text-lg py-1 bg-gray-50 rounded-xl p-1.5" id="addCatEmojiGrid">
+            ${emojis.map(e => `
+              <span class="cursor-pointer hover:scale-125 transition p-1 rounded ${e === selectedEmoji ? 'bg-pink-100' : ''}" onclick="selectAddTempEmoji('${e}')">${e}</span>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      window.selectAddTempEmoji = (e) => {
+        selectedEmoji = e;
+        const spans = document.querySelectorAll('#addCatEmojiGrid span');
+        spans.forEach(s => {
+          s.className = (s.innerText === e) ? 'cursor-pointer hover:scale-125 transition p-1 rounded bg-pink-100' : 'cursor-pointer hover:scale-125 transition p-1 rounded';
+        });
+      };
+
+      openAppModal({
+        heading: '新增分类',
+        desc: '输入分类名称并选择图标：',
+        emoji: '➕',
+        inputValue: '下午茶',
+        customHtml: emojiPickHtml,
+        onConfirm: (val) => {
+          const name = val ? val.trim() : '';
+          if (!name) return;
+          const newId = 'c_' + Date.now();
+          state.categories.push({ id: newId, name: name, icon: selectedEmoji });
+          saveState();
+          renderCategoryManagerList();
+          showToast(`已添加「${name}」分类`, '🎉');
+        }
+      });
+    }
+
+    function deleteCategoryItem(index) {
+      if (state.categories.length <= 1) {
+        showToast('至少保留一个分类', '⚠️');
+        return;
+      }
+      const cat = state.categories[index];
+      openAppModal({
+        heading: '删除分类',
+        desc: `确定要删除「${cat.name}」吗？`,
+        emoji: '🗑️',
+        onConfirm: () => {
+          state.categories.splice(index, 1);
+          if (formState.category === cat.id) {
+            formState.category = state.categories[0].id;
+          }
+          saveState();
+          renderCategoryManagerList();
+          showToast('已删除分类', '🗑️');
+        }
+      });
+    }
+
+    function resetCategoriesToDefault() {
+      openAppModal({
+        heading: '恢复默认分类',
+        desc: '这会将分类列表重置为初始8项：',
+        emoji: '🔄',
+        onConfirm: () => {
+          state.categories = [...DEFAULT_CATEGORIES];
+          formState.category = 'food';
+          saveState();
+          renderCategoryManagerList();
+          showToast('分类已恢复默认', '✅');
+        }
+      });
+    }
+
+    /* =======================================================================
+       6. 视图 1：看板 (Dashboard) 与 日历
+    ======================================================================= */
+    function renderDashboard() {
+      const year = calendarDate.getFullYear();
+      const month = calendarDate.getMonth();
+
+      let monthIncome = 0;
+      let monthExpense = 0;
+
+      state.records.forEach(r => {
+        const d = new Date(r.date);
+        if (d.getFullYear() === year && d.getMonth() === month) {
+          if (r.type === 'income') monthIncome += parseFloat(r.amount);
+          if (r.type === 'expense') monthExpense += parseFloat(r.amount);
+        }
+      });
+
+      const balance = monthIncome - monthExpense;
+
+      document.getElementById('dashBalance').innerText = (balance < 0 ? '-¥' : '¥') + Math.abs(balance).toFixed(2);
+      document.getElementById('dashIncome').innerText = '¥' + monthIncome.toFixed(2);
+      document.getElementById('dashExpense').innerText = '¥' + monthExpense.toFixed(2);
+      document.getElementById('dashDebt').innerText = '¥' + (state.config.debt || 0).toFixed(2);
+
+      renderCalendarGrid(year, month);
+      renderSelectedDateRecords();
+    }
+
+    function renderCalendarGrid(year, month) {
+      document.getElementById('calendarTitle').innerText = `${year}年${month + 1}月`;
+      const grid = document.getElementById('calendarGrid');
+      grid.innerHTML = '';
+
+      const firstDayWeek = new Date(year, month, 1).getDay();
+      const totalDays = new Date(year, month + 1, 0).getDate();
+      const prevTotalDays = new Date(year, month, 0).getDate();
+
+      const datesWithRecords = new Set();
+      state.records.forEach(r => {
+        const [y, m, d] = r.date.split('-').map(Number);
+        if (y === year && m === month + 1) {
+          datesWithRecords.add(d);
+        }
+      });
+
+      // 上月补白
+      for (let i = firstDayWeek - 1; i >= 0; i--) {
+        const cell = document.createElement('div');
+        cell.className = 'py-1 text-gray-300 font-normal';
+        cell.innerText = prevTotalDays - i;
+        grid.appendChild(cell);
+      }
+
+      // 当月日期
+      for (let day = 1; day <= totalDays; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isSelected = dateStr === selectedDate;
+        const hasRecord = datesWithRecords.has(day);
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.onclick = () => {
+          selectedDate = dateStr;
+          renderDashboard();
+        };
+
+        if (isSelected) {
+          btn.className = 'w-7 h-7 mx-auto rounded-full bg-[#f43f72] text-white flex items-center justify-center font-bold shadow-md shadow-pink-300/60 scale-105';
+        } else {
+          btn.className = `w-7 h-7 mx-auto rounded-full flex flex-col items-center justify-center transition hover:bg-pink-50 relative ${hasRecord ? 'text-gray-900 font-bold' : 'text-gray-600'}`;
+        }
+
+        btn.innerHTML = `<span>${day}</span>`;
+        if (hasRecord && !isSelected) {
+          const dot = document.createElement('span');
+          dot.className = 'w-1 h-1 bg-pink-400 rounded-full absolute bottom-0.5';
+          btn.appendChild(dot);
+        }
+        grid.appendChild(btn);
+      }
+
+      // 下月补齐
+      const totalCells = firstDayWeek + totalDays;
+      const nextDays = (7 - (totalCells % 7)) % 7;
+      for (let j = 1; j <= nextDays; j++) {
+        const cell = document.createElement('div');
+        cell.className = 'py-1 text-gray-300 font-normal';
+        cell.innerText = j;
+        grid.appendChild(cell);
+      }
+    }
+
+    function prevMonth() {
+      calendarDate.setMonth(calendarDate.getMonth() - 1);
+      renderDashboard();
+    }
+
+    function nextMonth() {
+      calendarDate.setMonth(calendarDate.getMonth() + 1);
+      renderDashboard();
+    }
+
+    function renderSelectedDateRecords() {
+      const list = document.getElementById('selectedRecordsList');
+      const title = document.getElementById('selectedDateTitle');
+      const badge = document.getElementById('selectedCountBadge');
+
+      const [y, m, d] = selectedDate.split('-');
+      title.innerText = `${parseInt(m)}月${parseInt(d)}日 明细`;
+
+      const dayRecords = state.records.filter(r => r.date === selectedDate);
+      badge.innerText = `${dayRecords.length}笔`;
+
+      if (dayRecords.length === 0) {
+        list.innerHTML = `
+          <div class="py-4 text-center text-xs text-gray-300">
+            当天暂无收支记录
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = '';
+      dayRecords.forEach(item => {
+        const cat = state.categories.find(c => c.id === item.category) || { name: '其他', icon: '📦' };
+        const isExp = item.type === 'expense';
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between p-2.5 rounded-2xl bg-gray-50/70 border border-gray-100 hover:bg-pink-50/30 transition';
+
+        row.innerHTML = `
+          <div class="flex items-center space-x-2.5">
+            <span class="text-xl">${cat.icon}</span>
+            <div>
+              <div class="text-xs font-bold text-gray-800">${cat.name}</div>
+              <div class="text-[10px] text-gray-400">${item.remark || '无备注'}</div>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-black ${isExp ? 'text-gray-800' : 'text-emerald-500'}">
+              ${isExp ? '-' : '+'}¥${parseFloat(item.amount).toFixed(2)}
+            </span>
+            <button onclick="deleteRecord('${item.id}')" class="text-gray-300 hover:text-red-400 p-1">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+      lucide.createIcons();
+    }
+
+    function deleteRecord(id) {
+      openAppModal({
+        heading: '删除这笔记录',
+        desc: '确定要删除此条记账数据吗？',
+        emoji: '🗑️',
+        onConfirm: () => {
+          state.records = state.records.filter(r => r.id !== id);
+          saveState();
+          showToast('已删除记录', '🗑️');
+        }
+      });
+    }
+
+    /* =======================================================================
+       7. 视图 2：记账 (Record) 交互
+    ======================================================================= */
+    function renderRecordSection() {
+      const grid = document.getElementById('categoriesGrid');
+      grid.innerHTML = '';
+
+      state.categories.forEach(c => {
+        const isSelected = formState.category === c.id;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.onclick = () => {
+          formState.category = c.id;
+          renderRecordSection();
+        };
+
+        if (isSelected) {
+          btn.className = 'flex flex-col items-center justify-center py-2.5 px-1 rounded-2xl border-2 border-pink-300 bg-pink-100/70 text-pink-600 transition shadow-sm';
+        } else {
+          btn.className = 'flex flex-col items-center justify-center py-2.5 px-1 rounded-2xl border border-gray-100 bg-gray-50/60 text-gray-600 hover:bg-gray-100 transition';
+        }
+
+        btn.innerHTML = `
+          <span class="text-xl mb-0.5">${c.icon}</span>
+          <span class="text-[11px] font-bold">${c.name}</span>
+        `;
+        grid.appendChild(btn);
+      });
+
+      const dateInput = document.getElementById('recDate');
+      if (!dateInput.value) {
+        dateInput.value = formState.date;
+      }
+    }
+
+    function setRecordType(type) {
+      formState.type = type;
+      const expBtn = document.getElementById('typeExpBtn');
+      const incBtn = document.getElementById('typeIncBtn');
+
+      if (type === 'expense') {
+        expBtn.className = 'py-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center space-x-1 border-[#ff7096] bg-[#fff0f4] text-[#ff4d79]';
+        incBtn.className = 'py-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center space-x-1 border-gray-100 bg-gray-50 text-gray-500 hover:border-gray-200';
+      } else {
+        incBtn.className = 'py-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center space-x-1 border-emerald-400 bg-emerald-50 text-emerald-600';
+        expBtn.className = 'py-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center space-x-1 border-gray-100 bg-gray-50 text-gray-500 hover:border-gray-200';
+      }
+    }
+
+    function saveRecordFromForm() {
+      const amountInput = document.getElementById('recAmount');
+      const remarkInput = document.getElementById('recRemark');
+      const dateInput = document.getElementById('recDate');
+
+      const amt = parseFloat(amountInput.value);
+      if (isNaN(amt) || amt <= 0) {
+        showToast('请输入正确的金额', '⚠️');
+        amountInput.focus();
+        return;
+      }
+
+      const newRec = {
+        id: 'r_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        type: formState.type,
+        category: formState.category,
+        amount: amt,
+        remark: remarkInput.value.trim(),
+        date: dateInput.value || new Date().toISOString().slice(0, 10),
+        timestamp: Date.now()
+      };
+
+      state.records.unshift(newRec);
+
+      // 萌宠联动奖励
+      state.pet.recordsCount = (state.pet.recordsCount || 0) + 1;
+      if (state.pet.snacks < 10) {
+        state.pet.snacks += 1;
+      }
+      state.pet.mood = Math.min(100, state.pet.mood + 10);
+      const petName = state.pet.name || '豆豆';
+      const isCat = (state.pet.type || 'cat') === 'cat';
+      const snackName = isCat ? '猫条冻干' : '肉骨头零食';
+      state.pet.logs.unshift(`记账 ¥${amt.toFixed(2)}，给${petName}挣得${snackName} +1`);
+      if (state.pet.logs.length > 6) state.pet.logs.pop();
+
+      saveState();
+
+      amountInput.value = '';
+      remarkInput.value = '';
+
+      showToast(`记账成功！${petName}零食+1 🐾`, '🎉');
+      selectedDate = newRec.date;
+      setTimeout(() => switchTab('dashboard'), 250);
+    }
+
+    function handleVoiceInput() {
+      const hint = document.getElementById('voiceHint');
+      const ripple = document.getElementById('voiceRipple');
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      if (SpeechRecognition) {
+        try {
+          const recognition = new SpeechRecognition();
+          recognition.lang = 'zh-CN';
+          recognition.interimResults = false;
+
+          ripple.classList.remove('hidden');
+          hint.innerText = '请说话... 例如：“餐饮35元午餐”';
+          hint.classList.add('text-pink-500');
+
+          recognition.onresult = (e) => {
+            const transcript = e.results[0][0].transcript;
+            parseVoiceText(transcript);
+          };
+
+          recognition.onerror = () => {
+            fallbackVoicePrompt();
+          };
+
+          recognition.onend = () => {
+            ripple.classList.add('hidden');
+            hint.innerText = '点击开始语音记账';
+            hint.classList.remove('text-pink-500');
+          };
+
+          recognition.start();
+          return;
+        } catch (e) {
+          fallbackVoicePrompt();
+        }
+      } else {
+        fallbackVoicePrompt();
+      }
+    }
+
+    function fallbackVoicePrompt() {
+      const ripple = document.getElementById('voiceRipple');
+      const hint = document.getElementById('voiceHint');
+      ripple.classList.add('hidden');
+      hint.innerText = '点击开始语音记账';
+      hint.classList.remove('text-pink-500');
+
+      openAppModal({
+        heading: '智能口述记账',
+        desc: '输入一句话即可自动解析（如：“打车花了28元”）',
+        emoji: '🎙️',
+        inputValue: '餐饮 32 块钱吃午餐',
+        onConfirm: (val) => {
+          parseVoiceText(val);
+        }
+      });
+    }
+
+    function parseVoiceText(str) {
+      if (!str) return;
+      const numMatch = str.match(/(\d+(\.\d+)?)/);
+      let amt = numMatch ? parseFloat(numMatch[1]) : 25;
+
+      let cat = 'food';
+      if (/车|滴滴|地铁|公交|油/.test(str)) cat = 'traffic';
+      else if (/买|衣服|鞋|包|淘宝|京东/.test(str)) cat = 'shopping';
+      else if (/玩|电影|唱|游戏|剧本杀/.test(str)) cat = 'fun';
+      else if (/房租|水电|物业|话费|网费/.test(str)) cat = 'life';
+      else if (/药|病|医|门诊/.test(str)) cat = 'medical';
+
+      const found = state.categories.find(c => c.id === cat) || state.categories[0];
+      formState.category = found.id;
+      document.getElementById('recAmount').value = amt.toFixed(2);
+      document.getElementById('recRemark').value = str.replace(/[0-9.]+|元|块/g, '').trim() || '语音录入';
+      renderRecordSection();
+      showToast(`已识别：${amt}元 [${found.name}]`, '✨');
+    }
+
+    /* =======================================================================
+       8. 视图 3：宠物 (Pet) 逻辑（小猫 & 小狗 SVG 与交互）
+    ======================================================================= */
+    const CAT_SVG = `
+      <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-md">
+        <defs>
+          <radialGradient id="silverFurGrad" cx="45%" cy="40%" r="55%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="70%" stop-color="#f0f3f6"/>
+            <stop offset="100%" stop-color="#cbd5e1"/>
+          </radialGradient>
+          <linearGradient id="tailGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#94a3b8"/>
+            <stop offset="40%" stop-color="#e2e8f0"/>
+            <stop offset="100%" stop-color="#ffffff"/>
+          </linearGradient>
+          <radialGradient id="catEyeGrad" cx="35%" cy="35%" r="65%">
+            <stop offset="0%" stop-color="#a7f3d0"/>
+            <stop offset="45%" stop-color="#10b981"/>
+            <stop offset="90%" stop-color="#047857"/>
+            <stop offset="100%" stop-color="#064e3b"/>
+          </radialGradient>
+        </defs>
+        <path d="M 130 145 C 175 145, 195 105, 185 70 C 172 45, 142 55, 145 80 C 148 98, 138 120, 118 135" fill="url(#tailGrad)" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M 182 66 Q 190 75 180 85" stroke="#64748b" stroke-width="1.8" fill="none"/>
+        <path d="M 172 52 Q 183 58 174 72" stroke="#64748b" stroke-width="1.8" fill="none"/>
+        <ellipse cx="100" cy="138" rx="46" ry="38" fill="url(#silverFurGrad)" stroke="#94a3b8" stroke-width="2.2" />
+        <path d="M 66 118 Q 78 140 88 126 Q 100 146 112 126 Q 124 140 134 118 Q 100 132 66 118 Z" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.8"/>
+        <ellipse cx="76" cy="165" rx="12" ry="9" fill="#ffffff" stroke="#94a3b8" stroke-width="1.6"/>
+        <ellipse cx="76" cy="166" rx="5" ry="3.5" fill="#fbcfe8"/>
+        <ellipse cx="124" cy="165" rx="12" ry="9" fill="#ffffff" stroke="#94a3b8" stroke-width="1.6"/>
+        <ellipse cx="124" cy="166" rx="5" ry="3.5" fill="#fbcfe8"/>
+        <path d="M 60 76 L 46 36 C 58 35, 78 48, 82 64 Z" fill="url(#silverFurGrad)" stroke="#94a3b8" stroke-width="2"/>
+        <path d="M 58 68 L 52 45 C 59 45, 70 54, 72 63 Z" fill="#fda4af" opacity="0.65"/>
+        <path d="M 46 36 Q 52 40 49 46" stroke="#475569" stroke-width="2" fill="none"/>
+        <path d="M 140 76 L 154 36 C 142 35, 122 48, 118 64 Z" fill="url(#silverFurGrad)" stroke="#94a3b8" stroke-width="2"/>
+        <path d="M 142 68 L 148 45 C 141 45, 130 54, 128 63 Z" fill="#fda4af" opacity="0.65"/>
+        <path d="M 154 36 Q 148 40 151 46" stroke="#475569" stroke-width="2" fill="none"/>
+        <path d="M 52 92 C 40 106, 52 122, 68 120 C 78 124, 122 124, 132 120 C 148 122, 160 106, 148 92 C 154 75, 135 60, 100 60 C 65 60, 46 75, 52 92 Z" fill="url(#silverFurGrad)" stroke="#94a3b8" stroke-width="2.2" />
+        <ellipse cx="78" cy="88" rx="10.5" ry="12.5" fill="#1e293b"/>
+        <ellipse cx="78" cy="88" rx="9" ry="11" fill="url(#catEyeGrad)"/>
+        <ellipse cx="79" cy="88" rx="3.5" ry="8" fill="#0f172a"/>
+        <circle cx="76" cy="84" r="3" fill="#ffffff"/>
+        <circle cx="81" cy="91" r="1.5" fill="#ffffff" opacity="0.9"/>
+        <ellipse cx="122" cy="88" rx="10.5" ry="12.5" fill="#1e293b"/>
+        <ellipse cx="122" cy="88" rx="9" ry="11" fill="url(#catEyeGrad)"/>
+        <ellipse cx="121" cy="88" rx="3.5" ry="8" fill="#0f172a"/>
+        <circle cx="119" cy="84" r="3" fill="#ffffff"/>
+        <circle cx="124" cy="91" r="1.5" fill="#ffffff" opacity="0.9"/>
+        <path d="M 96 98 L 104 98 L 100 103 Z" fill="#fb7185" stroke="#334155" stroke-width="1.2"/>
+        <path d="M 100 103 Q 95 108 89 105" stroke="#334155" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <path d="M 100 103 Q 105 108 111 105" stroke="#334155" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <path d="M 68 102 L 44 98 M 67 106 L 42 107 M 68 110 L 46 116" stroke="#94a3b8" stroke-width="1.2" stroke-linecap="round"/>
+        <path d="M 132 102 L 156 98 M 133 106 L 158 107 M 132 110 L 154 116" stroke="#94a3b8" stroke-width="1.2" stroke-linecap="round"/>
+        <ellipse cx="68" cy="104" rx="6" ry="3.5" fill="#ff7f97" opacity="0.45"/>
+        <ellipse cx="132" cy="104" rx="6" ry="3.5" fill="#ff7f97" opacity="0.45"/>
+      </svg>
+    `;
+
+    const DOG_SVG = `
+      <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-md">
+        <defs>
+          <radialGradient id="dogFurGrad" cx="45%" cy="35%" r="60%">
+            <stop offset="0%" stop-color="#fff8ea"/>
+            <stop offset="70%" stop-color="#fde4b8"/>
+            <stop offset="100%" stop-color="#ecc691"/>
+          </radialGradient>
+        </defs>
+        <path d="M 136 135 C 160 120, 168 95, 160 88 C 152 82, 140 105, 126 128 Z" fill="#fde4b8" stroke="#d4a373" stroke-width="2"/>
+        <ellipse cx="100" cy="136" rx="42" ry="34" fill="url(#dogFurGrad)" stroke="#d4a373" stroke-width="2.2" />
+        <ellipse cx="100" cy="142" rx="26" ry="22" fill="#fffaf0" />
+        <ellipse cx="80" cy="164" rx="11" ry="8" fill="#fff" stroke="#d4a373" stroke-width="1.8"/>
+        <ellipse cx="80" cy="165" rx="5" ry="3" fill="#fbcfe8"/>
+        <ellipse cx="120" cy="164" rx="11" ry="8" fill="#fff" stroke="#d4a373" stroke-width="1.8"/>
+        <ellipse cx="120" cy="165" rx="5" ry="3" fill="#fbcfe8"/>
+        <ellipse cx="60" cy="58" rx="16" ry="28" transform="rotate(-20 60 58)" fill="#b07d50" stroke="#87582b" stroke-width="2"/>
+        <ellipse cx="60" cy="58" rx="10" ry="18" transform="rotate(-20 60 58)" fill="#78481c"/>
+        <ellipse cx="140" cy="58" rx="16" ry="28" transform="rotate(20 140 58)" fill="#b07d50" stroke="#87582b" stroke-width="2"/>
+        <ellipse cx="140" cy="58" rx="10" ry="18" transform="rotate(20 140 58)" fill="#78481c"/>
+        <ellipse cx="100" cy="92" rx="38" ry="35" fill="url(#dogFurGrad)" stroke="#d4a373" stroke-width="2.2"/>
+        <ellipse cx="100" cy="104" rx="22" ry="16" fill="#fffaf0" />
+        <circle cx="82" cy="85" r="9" fill="#1f1815"/>
+        <circle cx="80" cy="82" r="3.2" fill="#fff"/>
+        <circle cx="84" cy="87" r="1.5" fill="#fff"/>
+        <circle cx="118" cy="85" r="9" fill="#1f1815"/>
+        <circle cx="116" cy="82" r="3.2" fill="#fff"/>
+        <circle cx="120" cy="87" r="1.5" fill="#fff"/>
+        <ellipse cx="100" cy="98" rx="6" ry="4" fill="#382218"/>
+        <path d="M 97 106 Q 100 116 103 106" fill="#fb7185" stroke="#f43f5e" stroke-width="1.5"/>
+        <line x1="100" y1="106" x2="100" y2="112" stroke="#be123c" stroke-width="1"/>
+        <ellipse cx="72" cy="96" rx="5" ry="3" fill="#ff7f97" opacity="0.45"/>
+        <ellipse cx="128" cy="96" rx="5" ry="3" fill="#ff7f97" opacity="0.45"/>
+      </svg>
+    `;
+
+    function renderPetSection() {
+      const pet = state.pet;
+      const petName = pet.name || '豆豆';
+      const isCat = (pet.type || 'cat') === 'cat';
+
+      const catBtn = document.getElementById('petTypeCatBtn');
+      const dogBtn = document.getElementById('petTypeDogBtn');
+      if (isCat) {
+        catBtn.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold transition flex items-center space-x-1 bg-pink-500 text-white shadow-sm';
+        dogBtn.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold transition flex items-center space-x-1 text-gray-500 hover:text-pink-500';
+      } else {
+        dogBtn.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold transition flex items-center space-x-1 bg-pink-500 text-white shadow-sm';
+        catBtn.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold transition flex items-center space-x-1 text-gray-500 hover:text-pink-500';
+      }
+
+      document.getElementById('petCharacter').innerHTML = isCat ? CAT_SVG : DOG_SVG;
+
+      document.getElementById('valMood').innerText = `${pet.mood}%`;
+      document.getElementById('barMood').style.width = `${pet.mood}%`;
+
+      document.getElementById('valFull').innerText = `${pet.full}%`;
+      document.getElementById('barFull').style.width = `${pet.full}%`;
+
+      document.getElementById('valSnack').innerText = `${pet.snacks}/10`;
+      document.getElementById('barSnack').style.width = `${(pet.snacks / 10) * 100}%`;
+
+      document.getElementById('petRecordBadge').innerText = `${pet.recordsCount}次记账`;
+
+      const feedBtn = document.getElementById('feedBtn');
+      const snackName = isCat ? '猫条冻干' : '肉骨头零食';
+      const snackIcon = isCat ? '🐟' : '🍖';
+
+      if (pet.snacks <= 0) {
+        feedBtn.innerHTML = `<span>${snackIcon} 暂无${snackName}，快去记账吧</span>`;
+        feedBtn.classList.add('opacity-75');
+      } else {
+        feedBtn.innerHTML = `<span>${snackIcon} 投喂${snackName} (余 ${pet.snacks})</span>`;
+        feedBtn.classList.remove('opacity-75');
+      }
+
+      const logContainer = document.getElementById('petLogsList');
+      if (!pet.logs || pet.logs.length === 0) {
+        logContainer.innerHTML = `${petName}在等您记账呢~`;
+      } else {
+        logContainer.innerHTML = pet.logs.map(log => `<div>${log}</div>`).join('');
+      }
+    }
+
+    function clickPetAction(e) {
+      const heart = document.createElement('span');
+      heart.innerText = '💖';
+      heart.className = 'heart-anim text-2xl';
+      const rect = e.currentTarget.getBoundingClientRect();
+      heart.style.left = `${e.clientX - rect.left}px`;
+      heart.style.top = `${e.clientY - rect.top}px`;
+      e.currentTarget.appendChild(heart);
+      setTimeout(() => heart.remove(), 800);
+
+      const char = document.getElementById('petCharacter');
+      char.classList.add('animate-wiggle');
+      setTimeout(() => char.classList.remove('animate-wiggle'), 400);
+
+      state.pet.mood = Math.min(100, state.pet.mood + 5);
+      const isCat = (state.pet.type || 'cat') === 'cat';
+
+      const catQuotes = [
+        '喵呜~ 银渐层大包子脸给你蹭蹭！😽',
+        '呼噜噜… 摸下巴好舒服呀~',
+        '主人今天记账了吗？本喵想吃金枪鱼冻干！罐罐！',
+        '摇尾巴~ 最喜欢主人啦！💕',
+        '喵~ 踩奶中，请勿打扰~ 🐾'
+      ];
+      const dogQuotes = [
+        '汪汪！主人快摸摸我，摇尾巴中~ 🐶',
+        '汪！今天主人记账超自律，最爱主人啦！✨',
+        '呼哧呼哧~ 肚子饿啦，想要美味大骨头！🍖',
+        '蹭蹭主人的手~ 汪呜！💕',
+        '快跟我一起玩抛球球游戏吧！🐾'
+      ];
+
+      const quotes = isCat ? catQuotes : dogQuotes;
+      document.getElementById('petSpeech').innerText = quotes[Math.floor(Math.random() * quotes.length)];
+      saveState();
+    }
+
+    function feedPet() {
+      const petName = state.pet.name || '豆豆';
+      const isCat = (state.pet.type || 'cat') === 'cat';
+      const snackName = isCat ? '小鱼干冻干' : '香喷喷大骨头';
+      const icon = isCat ? '🐟' : '🍖';
+
+      if (state.pet.snacks <= 0) {
+        showToast(`暂无零食，记一笔账奖励${petName}一罐！`, icon);
+        return;
+      }
+      state.pet.snacks -= 1;
+      state.pet.full = Math.min(100, state.pet.full + 15);
+      state.pet.mood = Math.min(100, state.pet.mood + 10);
+      const actionDesc = isCat ? '开心地踩奶打呼噜！' : '高兴得疯狂摇尾巴转圈圈！';
+      state.pet.logs.unshift(`吃了美味的${snackName}，${petName}${actionDesc}`);
+      if (state.pet.logs.length > 6) state.pet.logs.pop();
+      saveState();
+      showToast(`喂食成功，${petName}开心度提升！${isCat ? '🐱' : '🐶'}`, icon);
+    }
+
+    /* =======================================================================
+       9. 视图 4：我的 (My & Settings)
+    ======================================================================= */
+    function renderMySection() {
+      document.getElementById('lblBudget').innerText = `¥${Number(state.config.budget).toLocaleString()}/月`;
+      document.getElementById('lblSavingsGoal').innerText = `¥${(state.config.savingsGoal / 10000).toFixed(1)}w`;
+      document.getElementById('lblDebt').innerText = `¥${Number(state.config.debt).toFixed(2)}`;
+
+      const logsBox = document.getElementById('settlementLogs');
+      if (!state.config.settledMonths || state.config.settledMonths.length === 0) {
+        logsBox.innerHTML = '暂无结算记录';
+      } else {
+        logsBox.innerHTML = state.config.settledMonths.map(item => `
+          <div class="flex items-center justify-between py-1 border-b border-gray-100 last:border-none text-xs">
+            <span class="font-bold text-gray-700">${item.month}</span>
+            <span class="text-gray-500">结余: ¥${item.balance.toFixed(2)}</span>
+            <span class="text-emerald-500 font-semibold">${item.status}</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    function editProfileValue(field) {
+      const fieldNames = {
+        budget: '月度预算',
+        savingsGoal: '存款目标',
+        debt: '剩余负债'
+      };
+      openAppModal({
+        heading: `修改${fieldNames[field]}`,
+        desc: `请输入新的${fieldNames[field]}金额：`,
+        emoji: '✏️',
+        inputValue: state.config[field] || '',
+        onConfirm: (val) => {
+          const num = parseFloat(val);
+          if (!isNaN(num) && num >= 0) {
+            state.config[field] = num;
+            saveState();
+            showToast('已更新规划参数', '✅');
+          }
+        }
+      });
+    }
+
+    function doMonthSettlement() {
+      const year = calendarDate.getFullYear();
+      const month = calendarDate.getMonth() + 1;
+      const mStr = `${year}年${month}月`;
+
+      openAppModal({
+        heading: '月底资产结算',
+        desc: `结算 ${mStr} 的累计结余与存款进度？`,
+        emoji: '📊',
+        onConfirm: () => {
+          let sumInc = 0, sumExp = 0;
+          state.records.forEach(r => {
+            const [y, m] = r.date.split('-').map(Number);
+            if (y === year && m === month) {
+              if (r.type === 'income') sumInc += parseFloat(r.amount);
+              if (r.type === 'expense') sumExp += parseFloat(r.amount);
+            }
+          });
+          const bal = sumInc - sumExp;
+          state.config.settledMonths = state.config.settledMonths || [];
+          state.config.settledMonths.unshift({
+            month: mStr,
+            balance: bal,
+            status: bal >= 0 ? '目标达成 🎉' : '轻微超支 ⚠️'
+          });
+          document.getElementById('lblSettlement').innerText = '本月已结算';
+          saveState();
+          showToast(`${mStr} 结算完成！`, '🎉');
+        }
+      });
+    }
+
+    function confirmClearData() {
+      openAppModal({
+        heading: '重置账本数据',
+        desc: '这将会清空全部记账与宠物数据，确定要重置吗？',
+        emoji: '⚠️',
+        onConfirm: () => {
+          localStorage.removeItem('ovo_data_' + currentBookId);
+          loadState();
+          showToast('数据已重置为初始状态', '🔄');
+        }
+      });
+    }
+
+    /* =======================================================================
+       10. 手机电脑多端互通连接二维码与链接弹窗
+    ======================================================================= */
+    function openSyncModal() {
+      const shareUrl = window.location.origin + window.location.pathname + '?bookId=' + currentBookId;
+      document.getElementById('syncShareUrl').value = shareUrl;
+
+      const qrEl = document.getElementById('qrcode');
+      qrEl.innerHTML = '';
+      try {
+        new QRCode(qrEl, {
+          text: shareUrl,
+          width: 140,
+          height: 140,
+          colorDark : "#222222",
+          colorLight : "#ffffff",
+          correctLevel : QRCode.CorrectLevel.M
+        });
+      } catch (err) {
+        console.warn('QR code generation error', err);
+      }
+
+      document.getElementById('syncCodeArea').classList.remove('hidden');
+      openAppModal({
+        heading: '手机电脑同步',
+        desc: '在手机扫码，或在电脑浏览器粘贴此链接即可双向实时同步账本：',
+        emoji: '📲',
+        hideConfirm: true
+      });
+    }
+
+    function copySyncLink() {
+      const copyInput = document.getElementById('syncShareUrl');
+      copyInput.select();
+      copyInput.setSelectionRange(0, 99999);
+      try {
+        document.execCommand('copy');
+        showToast('同步链接已复制到剪贴板！', '📋');
+      } catch (e) {
+        showToast('请长按复制链接', '💡');
+      }
+    }
+
+    /* =======================================================================
+       11. 自定义无侵入 Modal 与 Toast
+    ======================================================================= */
+    let currentModalCallback = null;
+    function openAppModal({ heading, desc, emoji = '✨', inputValue = null, customHtml = null, onConfirm, hideConfirm = false, autoFocus = true }) {
+      const modal = document.getElementById('appModal');
+      const box = document.getElementById('modalBox');
+      const inputWrap = document.getElementById('modalInputFieldWrap');
+      const inputField = document.getElementById('modalInputField');
+      const confirmBtn = document.getElementById('modalBtnConfirm');
+
+      document.getElementById('modalHeading').innerText = heading;
+      document.getElementById('modalDesc').innerText = desc;
+      document.getElementById('modalEmoji').innerText = emoji;
+
+      let customContainer = document.getElementById('modalCustomArea');
+      if (!customContainer) {
+        customContainer = document.createElement('div');
+        customContainer.id = 'modalCustomArea';
+        inputWrap.parentNode.insertBefore(customContainer, inputWrap);
+      }
+      if (customHtml) {
+        customContainer.innerHTML = customHtml;
+        customContainer.classList.remove('hidden');
+      } else {
+        customContainer.innerHTML = '';
+        customContainer.classList.add('hidden');
+      }
+
+      if (inputValue !== null) {
+        inputWrap.classList.remove('hidden');
+        inputField.value = inputValue;
+        if (autoFocus) setTimeout(() => inputField.focus(), 150);
+      } else {
+        inputWrap.classList.add('hidden');
+      }
+
+      if (hideConfirm) {
+        confirmBtn.classList.add('hidden');
+      } else {
+        confirmBtn.classList.remove('hidden');
+      }
+
+      currentModalCallback = onConfirm;
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        box.classList.remove('scale-95', 'opacity-0');
+        box.classList.add('scale-100', 'opacity-100');
+      }, 10);
+    }
+
+    function closeAppModal() {
+      const modal = document.getElementById('appModal');
+      const box = document.getElementById('modalBox');
+      document.getElementById('syncCodeArea').classList.add('hidden');
+      box.classList.remove('scale-100', 'opacity-100');
+      box.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+      }, 200);
+    }
+
+    document.getElementById('modalBtnConfirm').addEventListener('click', () => {
+      const val = document.getElementById('modalInputField').value;
+      if (currentModalCallback) currentModalCallback(val);
+      closeAppModal();
+    });
+
+    let toastTimer = null;
+    function showToast(text, icon = '✨') {
+      const el = document.getElementById('toast');
+      document.getElementById('toastText').innerText = text;
+      document.getElementById('toastIcon').innerText = icon;
+      el.classList.remove('opacity-0');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        el.classList.add('opacity-0');
+      }, 2000);
+    }
+
+    /* =======================================================================
+       12. 页面初始化启动
+    ======================================================================= */
+    window.onload = function() {
+      const now = new Date();
+      document.getElementById('currentDateBadge').innerText = `${now.getMonth() + 1}月${now.getDate()}日`;
+
+      loadState();
+      refreshUI();
+    };
+  </script>
+</body>
+</html>
